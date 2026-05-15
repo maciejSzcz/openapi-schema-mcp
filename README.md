@@ -6,11 +6,20 @@ Most OpenAPI ↔ MCP bridges turn every operation into a tool, which forces the 
 
 ## Install
 
+Run directly with `npx` (no install needed):
+
 ```bash
-bun install
+npx openapi-schema-mcp --openapi-spec https://example.com/openapi.json
 ```
 
-Requires [Bun](https://bun.sh). The entry point is `src/cli.ts`.
+Or install globally:
+
+```bash
+npm install -g openapi-schema-mcp
+openapi-schema-mcp --openapi-spec https://example.com/openapi.json
+```
+
+Requires Node.js >= 18.
 
 ## Usage
 
@@ -18,16 +27,16 @@ The server speaks MCP over stdio. Point it at a spec via one of:
 
 ```bash
 # From a URL
-bun start --openapi-spec https://example.com/openapi.json
+npx openapi-schema-mcp --openapi-spec https://example.com/openapi.json
 
 # From a local file (JSON or YAML)
-bun start --openapi-spec ./openapi.yaml
+npx openapi-schema-mcp --openapi-spec ./openapi.yaml
 
 # From stdin
-cat openapi.json | bun start --spec-from-stdin
+cat openapi.json | npx openapi-schema-mcp --spec-from-stdin
 
 # Inline string
-bun start --spec-inline '{"openapi":"3.0.0", ...}'
+npx openapi-schema-mcp --spec-inline '{"openapi":"3.0.0", ...}'
 ```
 
 ### Flags
@@ -50,9 +59,10 @@ Example for Claude Code / any MCP client that accepts a stdio command:
 {
   "mcpServers": {
     "openapi": {
-      "command": "bun",
+      "command": "npx",
       "args": [
-        "/absolute/path/to/openapi-schema-mcp/src/cli.ts",
+        "-y",
+        "openapi-schema-mcp",
         "--openapi-spec",
         "https://example.com/openapi.json"
       ]
@@ -75,8 +85,14 @@ Each operation becomes a resource:
 
 ## Development
 
+The project is developed with [Bun](https://bun.sh) and bundled into a single Node-ready file with `bun build`.
+
 ```bash
-bun run typecheck
+bun install        # install dependencies
+bun start --openapi-spec ./openapi.yaml   # run from source
+bun run typecheck  # type-check
+bun test           # run tests
+bun run build      # bundle to dist/cli.js (Node-ready)
 ```
 
 ## License

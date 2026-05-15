@@ -6,7 +6,7 @@ import {
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { OpenAPIV3 } from "openapi-types";
 import { inlineRefs } from "./spec-loader.js";
-import { buildResources, findResource } from "./resources.js";
+import { buildResources } from "./resources.js";
 
 export type ServerOptions = {
   name: string;
@@ -31,7 +31,7 @@ export function createServer(options: ServerOptions): Server {
   }));
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const resource = findResource(resources, request.params.uri);
+    const resource = resources.find((r) => r.uri === request.params.uri);
     if (!resource) {
       throw new Error(`Unknown resource: ${request.params.uri}`);
     }

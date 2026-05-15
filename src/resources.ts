@@ -54,10 +54,3 @@ function extractDescription(operation: OpenAPIV3.OperationObject): string {
   if (operation.description?.trim()) return operation.description.trim();
   return "";
 }
-
-export function findResource(
-  resources: OperationResource[],
-  uri: string,
-): OperationResource | undefined {
-  return resources.find((r) => r.uri === uri);
-}
