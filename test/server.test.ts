@@ -4,35 +4,15 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { OpenAPIV3 } from "openapi-types";
 import { createServer } from "../src/server.js";
 
+// Catalog and ref-inlining behaviour is covered directly in catalog.test.ts /
+// ref-inliner.test.ts. These tests only assert the MCP protocol wiring.
+
 const SPEC: OpenAPIV3.Document = {
   openapi: "3.0.0",
   info: { title: "Test API", version: "1.0.0" },
   paths: {
-    "/api/users/{id}": {
-      get: {
-        summary: "Get a user",
-        responses: {
-          "200": {
-            description: "ok",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/User" },
-              },
-            },
-          },
-        },
-      },
-    },
     "/health": {
       get: { description: "Health check", responses: { "200": { description: "ok" } } },
-    },
-  },
-  components: {
-    schemas: {
-      User: {
-        type: "object",
-        properties: { id: { type: "string" }, name: { type: "string" } },
-      },
     },
   },
 };
@@ -46,49 +26,22 @@ async function connectedClient(spec: OpenAPIV3.Document): Promise<Client> {
   return client;
 }
 
-test("lists every operation as a resource, sorted by URI", async () => {
+test("resources/list returns the catalog listing", async () => {
   const client = await connectedClient(SPEC);
   const { resources } = await client.listResources();
-
-  expect(resources.map((r) => r.uri)).toEqual([
-    "openapi://health/get",
-    "openapi://users/{id}/get",
-  ]);
+  expect(resources.map((r) => r.uri)).toEqual(["openapi://health/get"]);
 });
 
-test("strips /api/ prefix and uses summary as description", async () => {
+test("resources/read returns the catalog contents", async () => {
   const client = await connectedClient(SPEC);
-  const { resources } = await client.listResources();
-
-  const user = resources.find((r) => r.uri === "openapi://users/{id}/get");
-  expect(user?.name).toBe("GET /users/{id}");
-  expect(user?.description).toBe("Get a user");
-  expect(user?.mimeType).toBe("application/json");
-});
-
-test("falls back to description when summary is absent", async () => {
-  const client = await connectedClient(SPEC);
-  const { resources } = await client.listResources();
-
-  const health = resources.find((r) => r.uri === "openapi://health/get");
-  expect(health?.description).toBe("Health check");
-});
-
-test("reads an operation with local $refs inlined", async () => {
-  const client = await connectedClient(SPEC);
-  const result = await client.readResource({ uri: "openapi://users/{id}/get" });
-
+  const result = await client.readResource({ uri: "openapi://health/get" });
   const [content] = result.contents;
   expect(content?.mimeType).toBe("application/json");
   if (!content || !("text" in content)) throw new Error("expected text content");
-  const body = JSON.parse(content.text);
-  expect(body.responses["200"].content["application/json"].schema).toEqual({
-    type: "object",
-    properties: { id: { type: "string" }, name: { type: "string" } },
-  });
+  expect(JSON.parse(content.text).description).toBe("Health check");
 });
 
-test("rejects an unknown resource URI", async () => {
+test("resources/read rejects an unknown resource URI", async () => {
   const client = await connectedClient(SPEC);
   let threw = false;
   try {
