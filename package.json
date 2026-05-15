@@ -1,6 +1,6 @@
 {
   "name": "openapi-schema-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Stdio MCP server that exposes an OpenAPI spec's operations as MCP resources.",
   "type": "module",
   "bin": {
