@@ -1,11 +1,12 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
-  ListResourcesRequestSchema,
-  ReadResourceRequestSchema,
+  CallToolRequestSchema,
+  ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { OpenAPIV3 } from "openapi-types";
-import { buildCatalog } from "./catalog.js";
+import { extractOperations } from "./operations.js";
+import { buildToolCatalog } from "./tools.js";
 
 export type ServerOptions = {
   name: string;
@@ -14,22 +15,28 @@ export type ServerOptions = {
 };
 
 export function createServer(options: ServerOptions): Server {
-  const catalog = buildCatalog(options.spec);
+  const operations = extractOperations(options.spec);
+  const catalog = buildToolCatalog(options.spec, operations);
   const server = new Server(
     { name: options.name, version: options.version },
-    { capabilities: { resources: {} } },
+    { capabilities: { tools: {} } },
   );
 
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-    resources: catalog.list(),
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: catalog.list(),
   }));
 
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    const contents = catalog.read(request.params.uri);
-    if (!contents) {
-      throw new Error(`Unknown resource: ${request.params.uri}`);
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const text = catalog.call(request.params.name);
+    if (text === undefined) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Unknown tool: ${request.params.name}` }],
+      };
     }
-    return { contents: [contents] };
+    return {
+      content: [{ type: "text", text }],
+    };
   });
 
   return server;
