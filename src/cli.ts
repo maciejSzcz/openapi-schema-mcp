@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -27,7 +30,7 @@ async function main() {
     .option("server-version", {
       type: "string",
       description: "Server version advertised to MCP clients",
-      default: "0.1.0",
+      default: readPackageVersion(),
     })
     .strict()
     .help()
@@ -41,6 +44,26 @@ async function main() {
     spec,
   });
   await startServer(server, new StdioServerTransport());
+}
+
+function readPackageVersion(): string {
+  const here = dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    resolve(here, "..", "package.json"),
+    resolve(here, "..", "..", "package.json"),
+  ];
+  for (const path of candidates) {
+    try {
+      const text = readFileSync(path, "utf8");
+      const parsed = JSON.parse(text) as { version?: string };
+      if (typeof parsed.version === "string" && parsed.version.length > 0) {
+        return parsed.version;
+      }
+    } catch {
+      // try next
+    }
+  }
+  return "0.0.0";
 }
 
 function resolveSpecSource(argv: {

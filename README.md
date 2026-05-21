@@ -1,8 +1,8 @@
 # openapi-schema-mcp
 
-Exposes OpenAPI operations as MCP resources (not tools) — context-light, browse-and-fetch access to large specs.
+Exposes OpenAPI operations as deferred MCP **tools** — keyword-discoverable in your client, but the schema itself only loads into context when you invoke the tool.
 
-Most OpenAPI ↔ MCP bridges turn every operation into a tool, which forces the client to load the full tool list (and its schemas) into context up front. This server takes the opposite approach: each operation is published as an MCP **resource** under `openapi://<path>/<method>`. Clients call `resources/list` to see what's available, then `resources/read` to pull only the operations they actually need.
+Most OpenAPI ↔ MCP bridges either (a) eagerly load every operation's schema into the client's context, or (b) hide operations behind passive resources that aren't searchable. This server takes the middle path: each operation is published as an MCP **tool** with a short `name` and a one-line `description` (the operation summary + path + method). Clients that support deferred tool loading — like Claude Code — can fuzzy-match the tool list without loading any schemas. When you actually call a tool, the server returns the full, self-contained operation JSON (with `$ref`s inlined). No HTTP requests are made; this server is a schema browser, not a proxy.
 
 ## Install
 
@@ -47,7 +47,7 @@ npx openapi-schema-mcp --spec-inline '{"openapi":"3.0.0", ...}'
 | `--spec-from-stdin` | Read the spec from stdin. |
 | `--spec-inline <string>` | Pass the spec content directly as a string. |
 | `--name <string>` | Server name advertised to MCP clients. Default: `openapi-schema-mcp`. |
-| `--server-version <string>` | Server version advertised to MCP clients. Default: `0.1.0`. |
+| `--server-version <string>` | Server version advertised to MCP clients. Default: the package version. |
 
 Exactly one of `--openapi-spec`, `--spec-from-stdin`, `--spec-inline` is required.
 
@@ -71,17 +71,16 @@ Example for Claude Code / any MCP client that accepts a stdio command:
 }
 ```
 
-## Resource shape
+## Tool shape
 
-Each operation becomes a resource:
+Each operation becomes a tool:
 
-- **URI:** `openapi://<path>/<method>` — e.g. `openapi://users/{id}/get`. A leading `/api/` prefix in the spec is stripped to keep URIs short.
-- **Name:** `GET /users/{id}`
-- **Description:** the operation's `summary`, falling back to `description`.
-- **MIME type:** `application/json`
-- **Body:** the operation object as JSON, with all local `$ref`s inlined so the client gets a self-contained schema. Cycles are broken with `{ "$ref": "...", "_cycle": true }`; unresolvable refs are marked `_unresolved`.
+- **Name:** the operation's `operationId`, sanitized to `^[a-zA-Z0-9_-]{1,64}$`. If no `operationId` is set, a name is derived from method + path, e.g. `get_users_by_id` for `GET /users/{id}`. Collisions are resolved with a numeric suffix (`name_2`, `name_3`, …) and a warning on stderr.
+- **Description:** `"<summary> — <METHOD> <path>"`, e.g. `"List compute block jobs — GET /ds-state-api/cb-job/"`. When `summary` is missing, the operation's `description` is used (truncated to 120 chars).
+- **Input schema:** empty (`{ "type": "object", "properties": {} }`). Calling the tool takes no arguments.
+- **Output:** a single text content block containing the operation object as pretty-printed JSON, with all local `$ref`s inlined. Cycles are broken with `{ "$ref": "...", "_cycle": true }`; unresolvable refs are marked `_unresolved`.
 
-`resources/list` returns every operation in the spec, sorted by URI.
+`tools/list` returns every operation in the spec.
 
 ## Development
 
